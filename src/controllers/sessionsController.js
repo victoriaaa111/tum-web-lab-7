@@ -81,4 +81,74 @@ async function createSession(req, res, next) {
   }
 }
 
-module.exports = { listSessions, createSession };
+async function getSession(req, res, next) {
+  try {
+    const isAdmin = req.user.role === 'ADMIN';
+
+    const { rows: [session] } = await pool.query(
+      `SELECT id, workout_id AS "workoutId", workout_title AS "workoutTitle",
+              tags, started_at AS "startedAt", finished_at AS "finishedAt", exercises
+       FROM sessions
+       WHERE id = $1 ${isAdmin ? '' : 'AND user_id = $2'}`,
+      isAdmin ? [req.params.id] : [req.params.id, req.user.sub]
+    );
+
+    if (!session) return res.status(404).json({ error: 'session not found' });
+    res.json(session);
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function updateSession(req, res, next) {
+  try {
+    const isAdmin = req.user.role === 'ADMIN';
+    const { workoutTitle, tags, startedAt, finishedAt, exercises } = req.body;
+    const fields = [];
+    const params = [];
+
+    if (workoutTitle !== undefined) { params.push(workoutTitle); fields.push(`workout_title = $${params.length}`); }
+    if (tags !== undefined)         { params.push(tags);         fields.push(`tags = $${params.length}`); }
+    if (startedAt !== undefined)    { params.push(startedAt);    fields.push(`started_at = $${params.length}`); }
+    if (finishedAt !== undefined)   { params.push(finishedAt);   fields.push(`finished_at = $${params.length}`); }
+    if (exercises !== undefined)    { params.push(JSON.stringify(exercises)); fields.push(`exercises = $${params.length}`); }
+
+    if (fields.length === 0) return res.status(400).json({ error: 'nothing to update' });
+
+    params.push(req.params.id);
+    const idParam = `$${params.length}`;
+    const ownerClause = isAdmin ? '' : ` AND user_id = $${params.length + 1}`;
+    if (!isAdmin) params.push(req.user.sub);
+
+    const { rows: [session] } = await pool.query(
+      `UPDATE sessions SET ${fields.join(', ')}
+       WHERE id = ${idParam}${ownerClause}
+       RETURNING id, workout_id AS "workoutId", workout_title AS "workoutTitle",
+                 tags, started_at AS "startedAt", finished_at AS "finishedAt", exercises`,
+      params
+    );
+
+    if (!session) return res.status(404).json({ error: 'session not found' });
+    res.json(session);
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function deleteSession(req, res, next) {
+  try {
+    const isAdmin = req.user.role === 'ADMIN';
+
+    const { rowCount } = await pool.query(
+      `DELETE FROM sessions WHERE id = $1 ${isAdmin ? '' : 'AND user_id = $2'}`,
+      isAdmin ? [req.params.id] : [req.params.id, req.user.sub]
+    );
+
+    if (rowCount === 0) return res.status(404).json({ error: 'session not found' });
+    res.sendStatus(204);
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = { listSessions, createSession, getSession, updateSession, deleteSession };
