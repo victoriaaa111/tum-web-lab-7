@@ -59,4 +59,26 @@ async function listSessions(req, res, next) {
   }
 }
 
-module.exports = { listSessions };
+async function createSession(req, res, next) {
+  try {
+    const { workoutId = null, workoutTitle, tags = [], startedAt, finishedAt, exercises = [] } = req.body;
+
+    if (!workoutTitle || !startedAt || !finishedAt) {
+      return res.status(400).json({ error: 'workoutTitle, startedAt and finishedAt are required' });
+    }
+
+    const { rows: [session] } = await pool.query(
+      `INSERT INTO sessions (user_id, workout_id, workout_title, tags, started_at, finished_at, exercises)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       RETURNING id, workout_id AS "workoutId", workout_title AS "workoutTitle",
+                 tags, started_at AS "startedAt", finished_at AS "finishedAt", exercises`,
+      [req.user.sub, workoutId, workoutTitle, tags, startedAt, finishedAt, JSON.stringify(exercises)]
+    );
+
+    res.status(201).json(session);
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = { listSessions, createSession };
