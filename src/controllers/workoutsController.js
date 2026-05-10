@@ -63,4 +63,43 @@ async function listWorkouts(req, res, next) {
   }
 }
 
-module.exports = { listWorkouts };
+async function createWorkout(req, res, next) {
+  const client = await pool.connect();
+  try {
+    const { title, tags = [], favorite = false, exercises = [] } = req.body;
+
+    if (!title) return res.status(400).json({ error: 'title is required' });
+
+    await client.query('BEGIN');
+
+    const { rows: [workout] } = await client.query(
+      `INSERT INTO workouts (user_id, title, tags, favorite)
+       VALUES ($1, $2, $3, $4)
+       RETURNING id, title, tags, favorite, created_at AS "createdAt"`,
+      [req.user.sub, title, tags, favorite]
+    );
+
+    const inserted = [];
+    for (let i = 0; i < exercises.length; i++) {
+      const { name, sets = 3, reps = 16 } = exercises[i];
+      const { rows: [ex] } = await client.query(
+        `INSERT INTO exercises (workout_id, name, sets, reps, position)
+         VALUES ($1, $2, $3, $4, $5)
+         RETURNING id, name, sets, reps, position`,
+        [workout.id, name, sets, reps, i]
+      );
+      inserted.push(ex);
+    }
+
+    await client.query('COMMIT');
+
+    res.status(201).json({ ...workout, exercises: inserted });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    next(err);
+  } finally {
+    client.release();
+  }
+}
+
+module.exports = { listWorkouts, createWorkout };
