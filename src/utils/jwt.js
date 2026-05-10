@@ -19,4 +19,12 @@ function setTokenCookie(res, token) {
   });
 }
 
-module.exports = { signToken, setTokenCookie, VALID_ROLES };
+function verifyToken(token) {
+  return jwt.verify(token, process.env.JWT_SECRET);
+}
+
+function clearTokenCookie(res) {
+  res.cookie('token', '', { httpOnly: true, sameSite: 'Strict', maxAge: 0 });
+}
+
+module.exports = { signToken, setTokenCookie, clearTokenCookie, verifyToken, VALID_ROLES };

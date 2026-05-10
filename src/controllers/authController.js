@@ -1,6 +1,6 @@
 const bcrypt = require('bcryptjs');
 const pool = require('../db/pool');
-const { signToken, setTokenCookie, VALID_ROLES } = require('../utils/jwt');
+const { signToken, setTokenCookie, clearTokenCookie, verifyToken, VALID_ROLES } = require('../utils/jwt');
 
 async function signup(req, res, next) {
   try {
@@ -28,6 +28,62 @@ async function signup(req, res, next) {
   }
 }
 
+async function login(req, res, next) {
+  try {
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+      return res.status(400).json({ error: 'email and password are required' });
+    }
+
+    const { rows } = await pool.query(
+      'SELECT id, username, role, password_hash FROM users WHERE email = $1',
+      [email]
+    );
+
+    const user = rows[0];
+    if (!user || !(await bcrypt.compare(password, user.password_hash))) {
+      return res.status(401).json({ error: 'invalid credentials' });
+    }
+
+    const jwt = signToken(user.id, user.role);
+    setTokenCookie(res, jwt);
+    res.json({ id: user.id, username: user.username, role: user.role });
+  } catch (err) {
+    next(err);
+  }
+}
+
+function logout(_req, res) {
+  clearTokenCookie(res);
+  res.sendStatus(204);
+}
+
+async function me(req, res, next) {
+  try {
+    const token = req.cookies?.token;
+    if (!token) return res.status(401).json({ error: 'not authenticated' });
+
+    let payload;
+    try {
+      payload = verifyToken(token);
+    } catch {
+      return res.status(401).json({ error: 'invalid or expired token' });
+    }
+
+    const { rows } = await pool.query(
+      'SELECT id, username, role, email FROM users WHERE id = $1',
+      [payload.sub]
+    );
+
+    if (!rows[0]) return res.status(401).json({ error: 'user not found' });
+
+    res.json(rows[0]);
+  } catch (err) {
+    next(err);
+  }
+}
+
 function token(req, res) {
   const role = req.query.role || req.body?.role;
 
@@ -40,4 +96,4 @@ function token(req, res) {
   res.json({ token: jwt });
 }
 
-module.exports = { signup, token };
+module.exports = { signup, login, logout, me, token };
