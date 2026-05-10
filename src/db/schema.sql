@@ -36,3 +36,5 @@ CREATE TABLE IF NOT EXISTS sessions (
   finished_at   TIMESTAMPTZ NOT NULL,
   exercises     JSONB NOT NULL DEFAULT '[]'
 );
+
+CREATE INDEX IF NOT EXISTS sessions_started_at_idx ON sessions (started_at DESC);
