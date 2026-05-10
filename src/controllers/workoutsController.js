@@ -102,4 +102,80 @@ async function createWorkout(req, res, next) {
   }
 }
 
-module.exports = { listWorkouts, createWorkout };
+async function getWorkout(req, res, next) {
+  try {
+    const isAdmin = req.user.role === 'ADMIN';
+
+    const { rows: [workout] } = await pool.query(
+      `SELECT
+         w.id, w.title, w.tags, w.favorite, w.created_at AS "createdAt",
+         COALESCE(
+           json_agg(
+             json_build_object('id', e.id, 'name', e.name, 'sets', e.sets, 'reps', e.reps, 'position', e.position)
+             ORDER BY e.position
+           ) FILTER (WHERE e.id IS NOT NULL),
+           '[]'
+         ) AS exercises
+       FROM workouts w
+       LEFT JOIN exercises e ON e.workout_id = w.id
+       WHERE w.id = $1 ${isAdmin ? '' : 'AND w.user_id = $2'}
+       GROUP BY w.id`,
+      isAdmin ? [req.params.id] : [req.params.id, req.user.sub]
+    );
+
+    if (!workout) return res.status(404).json({ error: 'workout not found' });
+    res.json(workout);
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function updateWorkout(req, res, next) {
+  try {
+    const isAdmin = req.user.role === 'ADMIN';
+    const { title, tags, favorite } = req.body;
+    const fields = [];
+    const params = [];
+
+    if (title !== undefined) { params.push(title); fields.push(`title = $${params.length}`); }
+    if (tags !== undefined)  { params.push(tags);  fields.push(`tags = $${params.length}`); }
+    if (favorite !== undefined) { params.push(favorite); fields.push(`favorite = $${params.length}`); }
+
+    if (fields.length === 0) return res.status(400).json({ error: 'nothing to update' });
+
+    params.push(req.params.id);
+    const idParam = `$${params.length}`;
+    const ownerClause = isAdmin ? '' : ` AND user_id = $${params.length + 1}`;
+    if (!isAdmin) params.push(req.user.sub);
+
+    const { rows: [workout] } = await pool.query(
+      `UPDATE workouts SET ${fields.join(', ')}
+       WHERE id = ${idParam}${ownerClause}
+       RETURNING id, title, tags, favorite, created_at AS "createdAt"`,
+      params
+    );
+
+    if (!workout) return res.status(404).json({ error: 'workout not found' });
+    res.json(workout);
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function deleteWorkout(req, res, next) {
+  try {
+    const isAdmin = req.user.role === 'ADMIN';
+
+    const { rowCount } = await pool.query(
+      `DELETE FROM workouts WHERE id = $1 ${isAdmin ? '' : 'AND user_id = $2'}`,
+      isAdmin ? [req.params.id] : [req.params.id, req.user.sub]
+    );
+
+    if (rowCount === 0) return res.status(404).json({ error: 'workout not found' });
+    res.sendStatus(204);
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = { listWorkouts, createWorkout, getWorkout, updateWorkout, deleteWorkout };
