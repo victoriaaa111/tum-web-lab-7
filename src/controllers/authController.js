@@ -1,6 +1,6 @@
 const bcrypt = require('bcryptjs');
 const pool = require('../db/pool');
-const { signToken, setTokenCookie, clearTokenCookie, verifyToken, VALID_ROLES } = require('../utils/jwt');
+const { signToken, setTokenCookie, clearTokenCookie, VALID_ROLES } = require('../utils/jwt');
 
 async function signup(req, res, next) {
   try {
@@ -61,19 +61,9 @@ function logout(_req, res) {
 
 async function me(req, res, next) {
   try {
-    const token = req.cookies?.token;
-    if (!token) return res.status(401).json({ error: 'not authenticated' });
-
-    let payload;
-    try {
-      payload = verifyToken(token);
-    } catch {
-      return res.status(401).json({ error: 'invalid or expired token' });
-    }
-
     const { rows } = await pool.query(
       'SELECT id, username, role, email FROM users WHERE id = $1',
-      [payload.sub]
+      [req.user.sub]
     );
 
     if (!rows[0]) return res.status(401).json({ error: 'user not found' });
