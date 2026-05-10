@@ -178,4 +178,90 @@ async function deleteWorkout(req, res, next) {
   }
 }
 
-module.exports = { listWorkouts, createWorkout, getWorkout, updateWorkout, deleteWorkout };
+async function ownsWorkout(userId, workoutId, isAdmin) {
+  if (isAdmin) return true;
+  const { rowCount } = await pool.query(
+    'SELECT 1 FROM workouts WHERE id = $1 AND user_id = $2',
+    [workoutId, userId]
+  );
+  return rowCount > 0;
+}
+
+async function addExercise(req, res, next) {
+  try {
+    const isAdmin = req.user.role === 'ADMIN';
+    if (!(await ownsWorkout(req.user.sub, req.params.id, isAdmin))) {
+      return res.status(404).json({ error: 'workout not found' });
+    }
+
+    const { name, sets = 3, reps = 16 } = req.body;
+    if (!name) return res.status(400).json({ error: 'name is required' });
+
+    const { rows: [ex] } = await pool.query(
+      `INSERT INTO exercises (workout_id, name, sets, reps, position)
+       VALUES ($1, $2, $3, $4, (SELECT COALESCE(MAX(position) + 1, 0) FROM exercises WHERE workout_id = $1))
+       RETURNING id, name, sets, reps, position`,
+      [req.params.id, name, sets, reps]
+    );
+
+    res.status(201).json(ex);
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function updateExercise(req, res, next) {
+  try {
+    const isAdmin = req.user.role === 'ADMIN';
+    if (!(await ownsWorkout(req.user.sub, req.params.id, isAdmin))) {
+      return res.status(404).json({ error: 'workout not found' });
+    }
+
+    const { name, sets, reps } = req.body;
+    const fields = [];
+    const params = [];
+
+    if (name !== undefined) { params.push(name); fields.push(`name = $${params.length}`); }
+    if (sets !== undefined) { params.push(sets); fields.push(`sets = $${params.length}`); }
+    if (reps !== undefined) { params.push(reps); fields.push(`reps = $${params.length}`); }
+
+    if (fields.length === 0) return res.status(400).json({ error: 'nothing to update' });
+
+    params.push(req.params.exId, req.params.id);
+    const { rows: [ex] } = await pool.query(
+      `UPDATE exercises SET ${fields.join(', ')}
+       WHERE id = $${params.length - 1} AND workout_id = $${params.length}
+       RETURNING id, name, sets, reps, position`,
+      params
+    );
+
+    if (!ex) return res.status(404).json({ error: 'exercise not found' });
+    res.json(ex);
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function deleteExercise(req, res, next) {
+  try {
+    const isAdmin = req.user.role === 'ADMIN';
+    if (!(await ownsWorkout(req.user.sub, req.params.id, isAdmin))) {
+      return res.status(404).json({ error: 'workout not found' });
+    }
+
+    const { rowCount } = await pool.query(
+      'DELETE FROM exercises WHERE id = $1 AND workout_id = $2',
+      [req.params.exId, req.params.id]
+    );
+
+    if (rowCount === 0) return res.status(404).json({ error: 'exercise not found' });
+    res.sendStatus(204);
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = {
+  listWorkouts, createWorkout, getWorkout, updateWorkout, deleteWorkout,
+  addExercise, updateExercise, deleteExercise,
+};
