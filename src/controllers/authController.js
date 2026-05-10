@@ -1,5 +1,6 @@
 const bcrypt = require('bcryptjs');
 const pool = require('../db/pool');
+const { signToken, setTokenCookie, VALID_ROLES } = require('../utils/jwt');
 
 async function signup(req, res, next) {
   try {
@@ -13,8 +14,8 @@ async function signup(req, res, next) {
 
     const { rows } = await pool.query(
       `INSERT INTO users (username, email, password_hash)
-       VALUES ($1, $2, $3)
-       RETURNING id, username, role`,
+      VALUES ($1, $2, $3)
+      RETURNING id, username, role`,
       [username, email, passwordHash]
     );
 
@@ -27,4 +28,16 @@ async function signup(req, res, next) {
   }
 }
 
-module.exports = { signup };
+function token(req, res) {
+  const role = req.query.role || req.body?.role;
+
+  if (!role || !VALID_ROLES.includes(role)) {
+    return res.status(400).json({ error: `role must be one of: ${VALID_ROLES.join(', ')}` });
+  }
+
+  const jwt = signToken('demo', role);
+  setTokenCookie(res, jwt);
+  res.json({ token: jwt });
+}
+
+module.exports = { signup, token };
