@@ -8,6 +8,7 @@ const errorHandler = require('./middleware/errorHandler');
 const authRoutes = require('./routes/auth');
 const workoutRoutes = require('./routes/workouts');
 const sessionRoutes = require('./routes/sessions');
+const adminRoutes = require('./routes/admin');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -26,6 +27,7 @@ app.get('/health', (_req, res) => {
 app.use('/auth', authRoutes);
 app.use('/workouts', workoutRoutes);
 app.use('/sessions', sessionRoutes);
+app.use('/admin', adminRoutes);
 
 app.use(errorHandler);
 
