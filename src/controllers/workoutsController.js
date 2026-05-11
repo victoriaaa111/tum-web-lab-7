@@ -102,6 +102,34 @@ async function createWorkout(req, res, next) {
   }
 }
 
+async function exportWorkouts(req, res, next) {
+  try {
+    const { rows } = await pool.query(
+      `SELECT
+         w.id, w.title, w.tags, w.favorite, w.created_at AS "createdAt",
+         COALESCE(
+           json_agg(
+             json_build_object('name', e.name, 'sets', e.sets, 'reps', e.reps, 'position', e.position)
+             ORDER BY e.position
+           ) FILTER (WHERE e.id IS NOT NULL),
+           '[]'
+         ) AS exercises
+       FROM workouts w
+       LEFT JOIN exercises e ON e.workout_id = w.id
+       WHERE w.user_id = $1
+       GROUP BY w.id
+       ORDER BY w.created_at DESC`,
+      [req.user.sub]
+    );
+
+    res.setHeader('Content-Disposition', 'attachment; filename="workouts-export.json"');
+    res.setHeader('Content-Type', 'application/json');
+    res.json(rows);
+  } catch (err) {
+    next(err);
+  }
+}
+
 async function getWorkout(req, res, next) {
   try {
     const isAdmin = req.user.role === 'ADMIN';
@@ -262,6 +290,6 @@ async function deleteExercise(req, res, next) {
 }
 
 module.exports = {
-  listWorkouts, createWorkout, getWorkout, updateWorkout, deleteWorkout,
+  listWorkouts, createWorkout, exportWorkouts, getWorkout, updateWorkout, deleteWorkout,
   addExercise, updateExercise, deleteExercise,
 };
