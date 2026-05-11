@@ -19,6 +19,8 @@ async function signup(req, res, next) {
       [username, email, passwordHash]
     );
 
+    const jwt = signToken(rows[0].id, rows[0].role);
+    setTokenCookie(res, jwt);
     res.status(201).json(rows[0]);
   } catch (err) {
     if (err.code === '23505') {
@@ -75,7 +77,7 @@ async function me(req, res, next) {
 }
 
 function token(req, res) {
-  const role = req.query.role || req.body?.role;
+  const role = req.body?.role;
 
   if (!role || !VALID_ROLES.includes(role)) {
     return res.status(400).json({ error: `role must be one of: ${VALID_ROLES.join(', ')}` });
