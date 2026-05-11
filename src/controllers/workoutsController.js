@@ -130,6 +130,61 @@ async function exportWorkouts(req, res, next) {
   }
 }
 
+async function importWorkouts(req, res, next) {
+  const client = await pool.connect();
+  try {
+    const workouts = req.body;
+
+    if (!Array.isArray(workouts)) {
+      return res.status(400).json({ error: 'request body must be an array of workouts' });
+    }
+
+    await client.query('BEGIN');
+
+    let imported = 0;
+    let skipped = 0;
+
+    for (const w of workouts) {
+      const { title, tags = [], favorite = false, createdAt, exercises = [] } = w;
+
+      if (!title) { skipped++; continue; }
+
+      const { rowCount: exists } = await client.query(
+        'SELECT 1 FROM workouts WHERE user_id = $1 AND title = $2 AND created_at = $3',
+        [req.user.sub, title, createdAt || null]
+      );
+
+      if (exists > 0) { skipped++; continue; }
+
+      const { rows: [workout] } = await client.query(
+        `INSERT INTO workouts (user_id, title, tags, favorite, created_at)
+         VALUES ($1, $2, $3, $4, $5)
+         RETURNING id`,
+        [req.user.sub, title, tags, favorite, createdAt || new Date()]
+      );
+
+      for (let i = 0; i < exercises.length; i++) {
+        const { name, sets = 3, reps = 16 } = exercises[i];
+        if (!name) continue;
+        await client.query(
+          `INSERT INTO exercises (workout_id, name, sets, reps, position) VALUES ($1, $2, $3, $4, $5)`,
+          [workout.id, name, sets, reps, i]
+        );
+      }
+
+      imported++;
+    }
+
+    await client.query('COMMIT');
+    res.json({ imported, skipped });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    next(err);
+  } finally {
+    client.release();
+  }
+}
+
 async function getWorkout(req, res, next) {
   try {
     const isAdmin = req.user.role === 'ADMIN';
@@ -290,6 +345,6 @@ async function deleteExercise(req, res, next) {
 }
 
 module.exports = {
-  listWorkouts, createWorkout, exportWorkouts, getWorkout, updateWorkout, deleteWorkout,
+  listWorkouts, createWorkout, exportWorkouts, importWorkouts, getWorkout, updateWorkout, deleteWorkout,
   addExercise, updateExercise, deleteExercise,
 };

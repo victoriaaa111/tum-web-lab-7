@@ -1,6 +1,6 @@
 const express = require('express');
 const { authenticateJWT } = require('../middleware/authenticate');
-const { listWorkouts, createWorkout, exportWorkouts, getWorkout, updateWorkout, deleteWorkout, addExercise, updateExercise, deleteExercise } = require('../controllers/workoutsController');
+const { listWorkouts, createWorkout, exportWorkouts, importWorkouts, getWorkout, updateWorkout, deleteWorkout, addExercise, updateExercise, deleteExercise } = require('../controllers/workoutsController');
 
 const router = express.Router();
 
@@ -9,6 +9,7 @@ router.use(authenticateJWT);
 router.get('/', listWorkouts);
 router.post('/', createWorkout);
 router.get('/export', exportWorkouts);
+router.post('/import', importWorkouts);
 router.get('/:id', getWorkout);
 router.patch('/:id', updateWorkout);
 router.delete('/:id', deleteWorkout);
