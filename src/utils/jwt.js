@@ -1,7 +1,7 @@
 const jwt = require('jsonwebtoken');
 
 const VALID_ROLES = ['ADMIN', 'WRITER', 'VISITOR'];
-const EXPIRY_SECONDS = 60;
+const EXPIRY_SECONDS = 60 * 60 * 24 * 7; // 24 hours
 
 function signToken(sub, role) {
   return jwt.sign(
