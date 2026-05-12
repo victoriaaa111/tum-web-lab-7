@@ -6,7 +6,14 @@ const options = {
     info: {
       title: 'Workout Journal API',
       version: '1.0.0',
-      description: 'REST API for managing workout templates and session history.',
+      description: `REST API for managing workout templates and logged session history.
+
+**Authentication**: JWT stored as an HttpOnly cookie (\`token\`). All protected endpoints also accept a \`Bearer\` token in the \`Authorization\` header for convenience in this UI — use \`POST /auth/token\` to get one.
+
+**Roles**:
+- \`ADMIN\` — full access to all data and the \`/admin\` panel
+- \`WRITER\` — full CRUD on own workouts and sessions
+- \`VISITOR\` — read-only; all write endpoints return \`403\``,
     },
     servers: [{ url: 'http://localhost:3000' }],
     components: {
