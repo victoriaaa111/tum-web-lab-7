@@ -12,9 +12,11 @@ function signToken(sub, role) {
 }
 
 function setTokenCookie(res, token) {
+  const isProd = process.env.NODE_ENV === 'production';
   res.cookie('token', token, {
     httpOnly: true,
-    sameSite: 'Strict',
+    sameSite: isProd ? 'None' : 'Strict',
+    secure: isProd,
     maxAge: EXPIRY_SECONDS * 1000,
   });
 }
@@ -24,7 +26,8 @@ function verifyToken(token) {
 }
 
 function clearTokenCookie(res) {
-  res.cookie('token', '', { httpOnly: true, sameSite: 'Strict', maxAge: 0 });
+  const isProd = process.env.NODE_ENV === 'production';
+  res.cookie('token', '', { httpOnly: true, sameSite: isProd ? 'None' : 'Strict', secure: isProd, maxAge: 0 });
 }
 
 module.exports = { signToken, setTokenCookie, clearTokenCookie, verifyToken, VALID_ROLES };
