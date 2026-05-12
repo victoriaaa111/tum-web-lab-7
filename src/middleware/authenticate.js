@@ -22,4 +22,12 @@ function requireRole(...roles) {
   };
 }
 
-module.exports = { authenticateJWT, requireRole };
+function requireWriter(req, res, next) {
+  if (!req.user) return res.status(401).json({ error: 'not authenticated' });
+  if (req.user.role === 'VISITOR') {
+    return res.status(403).json({ error: 'read-only access' });
+  }
+  next();
+}
+
+module.exports = { authenticateJWT, requireRole, requireWriter };

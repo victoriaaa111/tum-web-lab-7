@@ -1,5 +1,5 @@
 const express = require('express');
-const { authenticateJWT } = require('../middleware/authenticate');
+const { authenticateJWT, requireWriter } = require('../middleware/authenticate');
 const { listWorkouts, createWorkout, exportWorkouts, importWorkouts, getWorkout, updateWorkout, deleteWorkout, addExercise, updateExercise, deleteExercise } = require('../controllers/workoutsController');
 
 const router = express.Router();
@@ -104,7 +104,7 @@ router.use(authenticateJWT);
  *               $ref: '#/components/schemas/Error'
  */
 router.get('/', listWorkouts);
-router.post('/', createWorkout);
+router.post('/', requireWriter, createWorkout);
 
 /**
  * @openapi
@@ -180,7 +180,7 @@ router.get('/export', exportWorkouts);
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.post('/import', importWorkouts);
+router.post('/import', requireWriter, importWorkouts);
 
 /**
  * @openapi
@@ -290,8 +290,8 @@ router.post('/import', importWorkouts);
  *               $ref: '#/components/schemas/Error'
  */
 router.get('/:id', getWorkout);
-router.patch('/:id', updateWorkout);
-router.delete('/:id', deleteWorkout);
+router.patch('/:id', requireWriter, updateWorkout);
+router.delete('/:id', requireWriter, deleteWorkout);
 
 /**
  * @openapi
@@ -430,8 +430,8 @@ router.delete('/:id', deleteWorkout);
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.post('/:id/exercises', addExercise);
-router.patch('/:id/exercises/:exId', updateExercise);
-router.delete('/:id/exercises/:exId', deleteExercise);
+router.post('/:id/exercises', requireWriter, addExercise);
+router.patch('/:id/exercises/:exId', requireWriter, updateExercise);
+router.delete('/:id/exercises/:exId', requireWriter, deleteExercise);
 
 module.exports = router;
