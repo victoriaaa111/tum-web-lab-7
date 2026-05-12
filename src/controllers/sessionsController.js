@@ -154,6 +154,53 @@ async function deleteSession(req, res, next) {
   }
 }
 
+async function importSessions(req, res, next) {
+  try {
+    const body = req.body;
+    if (!Array.isArray(body)) {
+      return res.status(400).json({ error: 'body must be an array of sessions' });
+    }
+
+    let imported = 0;
+    let skipped = 0;
+
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      for (const s of body) {
+        const { workoutId = null, workoutTitle, tags = [], startedAt, finishedAt, exercises = [] } = s;
+        if (!workoutTitle || !startedAt || !finishedAt) { skipped++; continue; }
+
+        const { rowCount } = await client.query(
+          `SELECT 1 FROM sessions WHERE user_id = $1 AND workout_title = $2 AND started_at = $3`,
+          [req.user.sub, workoutTitle, startedAt]
+        );
+
+        if (rowCount > 0) { skipped++; continue; }
+
+        await client.query(
+          `INSERT INTO sessions (user_id, workout_id, workout_title, tags, started_at, finished_at, exercises)
+           VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+          [req.user.sub, workoutId, workoutTitle, tags, startedAt, finishedAt, JSON.stringify(exercises)]
+        );
+        imported++;
+      }
+
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+
+    res.json({ imported, skipped });
+  } catch (err) {
+    next(err);
+  }
+}
+
 async function exportSessions(req, res, next) {
   try {
     const { rows } = await pool.query(
@@ -173,4 +220,4 @@ async function exportSessions(req, res, next) {
   }
 }
 
-module.exports = { listSessions, createSession, exportSessions, getSession, updateSession, deleteSession };
+module.exports = { listSessions, createSession, importSessions, exportSessions, getSession, updateSession, deleteSession };
