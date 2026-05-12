@@ -116,6 +116,81 @@ router.use(authenticateJWT);
  */
 router.get('/', listSessions);
 router.post('/', requireWriter, createSession);
+/**
+ * @openapi
+ * /sessions/export:
+ *   get:
+ *     summary: Download the current user's full session history as a JSON file
+ *     tags: [Sessions]
+ *     security:
+ *       - cookieAuth: []
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: JSON file download
+ *         headers:
+ *           Content-Disposition:
+ *             schema: { type: string }
+ *             example: attachment; filename="sessions-export.json"
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/Session'
+ *       401:
+ *         description: Not authenticated
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ * /sessions/import:
+ *   post:
+ *     summary: Bulk-import sessions; skips duplicates matched by workoutTitle + startedAt
+ *     tags: [Sessions]
+ *     security:
+ *       - cookieAuth: []
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: array
+ *             items:
+ *               $ref: '#/components/schemas/Session'
+ *     responses:
+ *       200:
+ *         description: Import result
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 imported: { type: integer }
+ *                 skipped:  { type: integer }
+ *             example:
+ *               imported: 3
+ *               skipped: 1
+ *       400:
+ *         description: Body is not an array
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       401:
+ *         description: Not authenticated
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       403:
+ *         description: Insufficient role (VISITOR)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
 router.get('/export', exportSessions);
 router.post('/import', requireWriter, importSessions);
 
