@@ -4,7 +4,10 @@ async function listSessions(req, res, next) {
   try {
     const page = Math.max(0, parseInt(req.query.page) || 0);
     const size = Math.min(100, Math.max(1, parseInt(req.query.size) || 20));
-    const tags = req.query.tags ? req.query.tags.split(',').map(t => t.trim()) : null;
+    const rawTags = req.query.tags;
+    const tags = rawTags
+      ? (Array.isArray(rawTags) ? rawTags : rawTags.split(',')).map(t => t.trim()).filter(Boolean)
+      : null;
     const { from, to } = req.query;
 
     const isAdmin = req.user.role === 'ADMIN';
