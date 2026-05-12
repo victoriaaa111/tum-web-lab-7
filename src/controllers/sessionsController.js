@@ -169,7 +169,7 @@ async function importSessions(req, res, next) {
       await client.query('BEGIN');
 
       for (const s of body) {
-        const { workoutId = null, workoutTitle, tags = [], startedAt, finishedAt, exercises = [] } = s;
+        const { workoutTitle, tags = [], startedAt, finishedAt, exercises = [] } = s;
         if (!workoutTitle || !startedAt || !finishedAt) { skipped++; continue; }
 
         const { rowCount } = await client.query(
@@ -182,7 +182,7 @@ async function importSessions(req, res, next) {
         await client.query(
           `INSERT INTO sessions (user_id, workout_id, workout_title, tags, started_at, finished_at, exercises)
            VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-          [req.user.sub, workoutId, workoutTitle, tags, startedAt, finishedAt, JSON.stringify(exercises)]
+          [req.user.sub, null, workoutTitle, tags, startedAt, finishedAt, JSON.stringify(exercises)]
         );
         imported++;
       }
