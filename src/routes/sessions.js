@@ -1,5 +1,5 @@
 const express = require('express');
-const { authenticateJWT } = require('../middleware/authenticate');
+const { authenticateJWT, requireWriter } = require('../middleware/authenticate');
 const { listSessions, createSession, importSessions, exportSessions, getSession, updateSession, deleteSession } = require('../controllers/sessionsController');
 
 const router = express.Router();
@@ -115,9 +115,9 @@ router.use(authenticateJWT);
  *               $ref: '#/components/schemas/Error'
  */
 router.get('/', listSessions);
-router.post('/', createSession);
+router.post('/', requireWriter, createSession);
 router.get('/export', exportSessions);
-router.post('/import', importSessions);
+router.post('/import', requireWriter, importSessions);
 
 /**
  * @openapi
@@ -229,7 +229,7 @@ router.post('/import', importSessions);
  *               $ref: '#/components/schemas/Error'
  */
 router.get('/:id', getSession);
-router.patch('/:id', updateSession);
-router.delete('/:id', deleteSession);
+router.patch('/:id', requireWriter, updateSession);
+router.delete('/:id', requireWriter, deleteSession);
 
 module.exports = router;
