@@ -154,4 +154,23 @@ async function deleteSession(req, res, next) {
   }
 }
 
-module.exports = { listSessions, createSession, getSession, updateSession, deleteSession };
+async function exportSessions(req, res, next) {
+  try {
+    const { rows } = await pool.query(
+      `SELECT id, workout_id AS "workoutId", workout_title AS "workoutTitle",
+              tags, started_at AS "startedAt", finished_at AS "finishedAt", exercises
+       FROM sessions
+       WHERE user_id = $1
+       ORDER BY started_at DESC`,
+      [req.user.sub]
+    );
+
+    res.setHeader('Content-Disposition', 'attachment; filename="sessions-export.json"');
+    res.setHeader('Content-Type', 'application/json');
+    res.json(rows);
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = { listSessions, createSession, exportSessions, getSession, updateSession, deleteSession };
